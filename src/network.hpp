@@ -8,8 +8,8 @@
 #include "display.hpp"
 #include "units.hpp"
 
-const char *ssid = "JohnConnor_V3";
-const char *password = "zy634218@";
+const char *ssid = "XXXX";
+const char *password = "XXXX";
 
 const uint16_t DCS_UDP_PORT = 5000;
 
