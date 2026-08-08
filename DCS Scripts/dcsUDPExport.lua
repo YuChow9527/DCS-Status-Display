@@ -1,6 +1,6 @@
 local HOST = "192.168.40.110"
 local PORT = 5000
-local UPDATE_INTERVAL = 0.01
+local UPDATE_INTERVAL = 0.05  -- 20 Hz
 
 local udp
 local lastSendTime = -1
