@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cmath>
 #include "display.hpp"
+#include "units.hpp"
 
 const char *ssid = "JohnConnor_V3";
 const char *password = "zy634218@";
@@ -14,18 +15,21 @@ const uint16_t DCS_UDP_PORT = 5000;
 
 struct DCSData
 {
-    float baroAlt = 0.0f;   // m
-    float radarAlt = 0.0f;  // m
-    float ias = 0.0f;       // m/s
-    float tas = 0.0f;       // m/s
-    float vs = 0.0f;        // m/s
+    float baroAlt = 0.0f;
+    float radarAlt = 0.0f;
+    float ias = 0.0f;
+    float tas = 0.0f;
+    float vs = 0.0f;
     float mach = 0.0f;
-    float heading = 0.0f;   // deg
-    float mhdg = 0.0f;      // deg
-    float ax = 0.0f;        // m/s²
-    float ay = 0.0f;        // m/s²
-    float az = 0.0f;        // m/s²
+    float heading = 0.0f;
+    float mhdg = 0.0f;
+    float gForce = 0.0f;
     char aircraft[40] = {};
+    char altUnit[8] = {};
+    char spdUnit[8] = {};
+    char vsUnit[8] = {};
+    bool altMetric = false;
+    bool spdMetric = false;
     bool valid = false;
     uint32_t lastUpdate = 0;
     uint32_t frameId = 0;
@@ -112,9 +116,7 @@ static void parseDCSPacket(const char *line, DCSData &out)
     out.mach = mach;
     out.heading = hdg;
     out.mhdg = mhdg;
-    out.ax = ax;
-    out.ay = ay;
-    out.az = az;
+    out.gForce = sqrtf(ax * ax + ay * ay + az * az);
     strncpy(out.aircraft, aircraft, sizeof(out.aircraft) - 1);
 }
 
@@ -183,6 +185,31 @@ void networkTask(void *param)
                 parsed.valid = true;
                 parsed.lastUpdate = millis();
                 parsed.frameId = ++frameCounter;
+
+                parsed.altMetric = dcs_units::altitudeIsMetric(parsed.aircraft);
+                parsed.spdMetric = dcs_units::speedIsMetric(parsed.aircraft);
+
+                if (!parsed.altMetric)
+                {
+                    parsed.baroAlt = dcs_units::mToFt(parsed.baroAlt);
+                    parsed.radarAlt = dcs_units::mToFt(parsed.radarAlt);
+                }
+                strncpy(parsed.altUnit, parsed.altMetric ? "M" : "FT", sizeof(parsed.altUnit) - 1);
+
+                if (parsed.spdMetric)
+                {
+                    parsed.ias = dcs_units::msToKmh(parsed.ias);
+                    parsed.tas = dcs_units::msToKmh(parsed.tas);
+                    parsed.vs = parsed.vs;
+                }
+                else
+                {
+                    parsed.ias = dcs_units::msToKts(parsed.ias);
+                    parsed.tas = dcs_units::msToKts(parsed.tas);
+                    parsed.vs = dcs_units::msToFpm(parsed.vs);
+                }
+                strncpy(parsed.spdUnit, parsed.spdMetric ? "KM/H" : "KTS", sizeof(parsed.spdUnit) - 1);
+                strncpy(parsed.vsUnit, parsed.spdMetric ? "M/S" : "FPM", sizeof(parsed.vsUnit) - 1);
                 if (dcsDataMutex != NULL)
                 {
                     if (xSemaphoreTake(dcsDataMutex, 10))

@@ -83,20 +83,18 @@ static void drawStatusScreen()
         return;
     }
 
-    bool altMetric = dcs_units::altitudeIsMetric(d.aircraft);
-    bool spdMetric = dcs_units::speedIsMetric(d.aircraft);
-    const char *altUnit = altMetric ? "M" : "FT";
-    const char *spdUnit = spdMetric ? "KM/H" : "KTS";
+    bool altMetric = d.altMetric;
+    bool spdMetric = d.spdMetric;
+    const char *altUnit = d.altUnit;
+    const char *spdUnit = d.spdUnit;
 
     char buf[16];
-    float altDisp = altMetric ? d.baroAlt : dcs_units::mToFt(d.baroAlt);
-    snprintf(buf, sizeof(buf), "%.1f", altDisp);
+    snprintf(buf, sizeof(buf), "%.1f", d.baroAlt);
     drawRow(54, "ALT", buf, altUnit);
 
-    float raltDisp = altMetric ? d.radarAlt : dcs_units::mToFt(d.radarAlt);
-    snprintf(buf, sizeof(buf), "%.1f", raltDisp);
+    snprintf(buf, sizeof(buf), "%.1f", d.radarAlt);
     float raltThreshold = altMetric ? 300.0f : 1000.0f;
-    if (raltDisp < raltThreshold)
+    if (d.radarAlt < raltThreshold)
     {
         int vRight = 470 - default_screen.textWidth(altUnit) - 8;
         default_screen.setTextDatum(textdatum_t::middle_left);
@@ -114,10 +112,9 @@ static void drawStatusScreen()
         drawRow(82, "RALT", buf, altUnit);
     }
 
-    float iasDisp = spdMetric ? dcs_units::msToKmh(d.ias) : dcs_units::msToKts(d.ias);
-    snprintf(buf, sizeof(buf), "%.1f", iasDisp);
+    snprintf(buf, sizeof(buf), "%.1f", d.ias);
     float iasLowThreshold = spdMetric ? 550.0f : 300.0f;
-    if (iasDisp < iasLowThreshold)
+    if (d.ias < iasLowThreshold)
     {
         int vRight = 470 - default_screen.textWidth(spdUnit) - 8;
         default_screen.setTextDatum(textdatum_t::middle_left);
@@ -135,13 +132,11 @@ static void drawStatusScreen()
         drawRow(110, "IAS", buf, spdUnit);
     }
 
-    float tasDisp = spdMetric ? dcs_units::msToKmh(d.tas) : dcs_units::msToKts(d.tas);
-    snprintf(buf, sizeof(buf), "%.1f", tasDisp);
+    snprintf(buf, sizeof(buf), "%.1f", d.tas);
     drawRow(138, "TAS", buf, spdUnit);
 
-    float vsDisp = spdMetric ? d.vs : dcs_units::msToFpm(d.vs);
-    snprintf(buf, sizeof(buf), "%.1f", vsDisp);
-    drawRow(166, "V/S", buf, spdMetric ? "M/S" : "FPM");
+    snprintf(buf, sizeof(buf), "%.1f", d.vs);
+    drawRow(166, "V/S", buf, d.vsUnit);
 
     snprintf(buf, sizeof(buf), "%.3f", d.mach);
     if (d.mach > 1.0f)
@@ -162,9 +157,8 @@ static void drawStatusScreen()
         drawRow(194, "MACH", buf, "MACH");
     }
 
-    float gVal = sqrtf(d.ax * d.ax + d.ay * d.ay + d.az * d.az);
-    snprintf(buf, sizeof(buf), "%.2f", gVal);
-    if (gVal > 6.0f)
+    snprintf(buf, sizeof(buf), "%.2f", d.gForce);
+    if (d.gForce > 6.0f)
     {
         int vRight = 470 - default_screen.textWidth("G") - 8;
         default_screen.setTextDatum(textdatum_t::middle_left);

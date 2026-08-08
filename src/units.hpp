@@ -15,7 +15,7 @@ static const char *const METRIC_AIRCRAFT[] = {
     "MiG-15", "MiG-19", "MiG-21", "MiG-23", "MiG-29", "MiG-29 Fulcrum",
     "Ka-50", "Ka-50_3", "Mi-8", "Mi-24",
     "Yak-52", "L-39", "J-11",
-    "AH-64", "OH58", "UH-1", "SA342",
+    "AH-64", "SA342",
 };
 
 inline bool aircraftUsesMetric(const char *name)
