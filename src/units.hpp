@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstring>
-#include <cmath>
 #include "modules/apache.hpp"
 
 // Unit conversion for the DCS display. DCS sends raw metric values (meters,

@@ -177,7 +177,7 @@ void networkTask(void *param)
         if (len > 0)
         {
             int n = udp.read(buf, sizeof(buf) - 1);
-            if (n > 0 && n == len)
+            if (n > 0)
             {
                 buf[n] = '\0';
                 DCSData parsed;

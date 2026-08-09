@@ -1,9 +1,7 @@
 ﻿#include <Arduino.h>
-#include <cmath>
 #include <LovyanGFX.hpp>
 #include "display.hpp"
 #include "network.hpp"
-#include "units.hpp"
 #include "fonts/RobotoMono_SemiBold_16.h"
 DCSData dcsData;
 SemaphoreHandle_t dcsDataMutex = NULL;
@@ -11,6 +9,7 @@ bool wifiConnectFailed = false;
 
 #define LABEL_COLOR 0xFFE0  // TFT_YELLOW
 #define VALUE_COLOR 0x07E0  // TFT_GREEN
+#define MACH_COLOR  0xF81F  // TFT_PINK
 #define UNIT_COLOR  0x07FF  // TFT_CYAN
 #define WARN_COLOR  0xF800  // TFT_RED
 
@@ -154,7 +153,16 @@ static void drawStatusScreen()
     }
     else
     {
-        drawRow(194, "MACH", buf, "MACH");
+        int vRight = 470 - default_screen.textWidth("MACH") - 8;
+        default_screen.setTextDatum(textdatum_t::middle_left);
+        default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
+        default_screen.drawString("MACH", 10, 194);
+        default_screen.setTextDatum(textdatum_t::middle_right);
+        default_screen.setTextColor(MACH_COLOR, TFT_BLACK);
+        default_screen.drawString(buf, vRight, 194);
+        default_screen.setTextDatum(textdatum_t::middle_left);
+        default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
+        default_screen.drawString("MACH", vRight + 8, 194);
     }
 
     snprintf(buf, sizeof(buf), "%.2f", d.gForce);
@@ -205,7 +213,7 @@ void setup()
     default_screen.setFont(&RobotoMono_SemiBold16pt7b);
     netconnect();
     dcsDataMutex = xSemaphoreCreateMutex();
-    xTaskCreatePinnedToCore(networkTask, "network", 8192, NULL, 1, NULL, 0);
+    xTaskCreatePinnedToCore(networkTask, "network", 16384, NULL, 1, NULL, 0);
     xTaskCreatePinnedToCore(displayTask, "display", 16384, NULL, 2, NULL, 1);
 }
 
