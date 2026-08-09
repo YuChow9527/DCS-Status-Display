@@ -9,7 +9,7 @@ Network info edit src/network.hpp
 Pin map check src/display.hpp
 
 MACH over M1 Red alart.
-RALT over 500ft or 150m Red alart.
+RALT below 500ft or 150m Red alart.
 
 Support MP,wont brake IC.
 
