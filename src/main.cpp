@@ -2,10 +2,10 @@
 #include <LovyanGFX.hpp>
 #include "display.hpp"
 #include "network.hpp"
+#include "fonts/RobotoMono_SemiBold_10.h"
 #include "fonts/RobotoMono_SemiBold_16.h"
 DCSData dcsData;
 SemaphoreHandle_t dcsDataMutex = NULL;
-bool wifiConnectFailed = false;
 
 #define LABEL_COLOR 0xFFE0  // TFT_YELLOW
 #define VALUE_COLOR 0x07E0  // TFT_GREEN
@@ -57,27 +57,52 @@ static void drawStatusScreen()
 
     if (stale)
     {
-        default_screen.setTextDatum(textdatum_t::top_center);
-        default_screen.setTextColor(TFT_RED, TFT_BLACK);
-        default_screen.drawString("NO DATA", 240, 42);
-        default_screen.setTextDatum(textdatum_t::middle_center);
-        default_screen.setTextColor(TFT_YELLOW, TFT_BLACK);
-        default_screen.drawString("WAITING FOR DCS", 240, 140);
+        static int bx = 60, by = 60;
+        static int dx = 4, dy = 2;
+        static bool init = false;
+        if (!init)
+        {
+            bx = random(40, 400);
+            by = random(40, 240);
+            dx = random(2) ? 2 : -2;
+            dy = random(2) ? 1 : -1;
+            init = true;
+        }
+
+        char ipLine[32] = {};
+        uint16_t ipColor = TFT_YELLOW;
         if (WiFi.status() == WL_CONNECTED)
         {
-            default_screen.setTextColor(TFT_GREEN, TFT_BLACK);
-            default_screen.drawString("IP: " + String(WiFi.localIP().toString()), 240, 190);
-        }
-        else if (wifiConnectFailed)
-        {
-            default_screen.setTextColor(TFT_RED, TFT_BLACK);
-            default_screen.drawString("Network Connect Failed", 240, 190);
+            snprintf(ipLine, sizeof(ipLine), "IP: %s", WiFi.localIP().toString().c_str());
+            ipColor = TFT_GREEN;
         }
         else
         {
-            default_screen.setTextColor(TFT_YELLOW, TFT_BLACK);
-            default_screen.drawString("Network Connecting", 240, 190);
+            strncpy(ipLine, "Connecting", sizeof(ipLine) - 1);
         }
+
+        default_screen.setFont(&RobotoMono_SemiBold10pt7b);
+
+        const int lineH = default_screen.fontHeight();
+        const int gap = 4;
+        int ndW = default_screen.textWidth("NO DATA");
+        int ipW = default_screen.textWidth(ipLine);
+        int bw = max(ndW, ipW);
+        int bh = lineH * 2 + gap;
+
+        bx += dx;
+        by += dy;
+        if (bx <= 0 || bx + bw >= 480) { dx = -dx; bx = constrain(bx, 0, 480 - bw); }
+        if (by <= 0 || by + bh >= 320) { dy = -dy; by = constrain(by, 0, 320 - bh); }
+
+        int cx = bx + bw / 2;
+        default_screen.setTextDatum(textdatum_t::top_center);
+        default_screen.setTextColor(TFT_RED, TFT_BLACK);
+        default_screen.drawString("NO DATA", cx, by);
+        default_screen.setTextColor(ipColor, TFT_BLACK);
+        default_screen.drawString(ipLine, cx, by + lineH + gap);
+
+        default_screen.setFont(&RobotoMono_SemiBold16pt7b);
         default_screen.pushSprite(0, 0);
         return;
     }
@@ -89,7 +114,7 @@ static void drawStatusScreen()
 
     char buf[16];
     snprintf(buf, sizeof(buf), "%.1f", d.baroAlt);
-    drawRow(54, "ALT", buf, altUnit);
+    drawRow(32, "ALT", buf, altUnit);
 
     snprintf(buf, sizeof(buf), "%.1f", d.radarAlt);
     float raltThreshold = altMetric ? 300.0f : 1000.0f;
@@ -98,17 +123,17 @@ static void drawStatusScreen()
         int vRight = 470 - default_screen.textWidth(altUnit) - 8;
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("RALT", 10, 82);
+        default_screen.drawString("RALT", 10, 64);
         default_screen.setTextDatum(textdatum_t::middle_right);
         default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
-        default_screen.drawString(buf, vRight, 82);
+        default_screen.drawString(buf, vRight, 64);
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString(altUnit, vRight + 8, 82);
+        default_screen.drawString(altUnit, vRight + 8, 64);
     }
     else
     {
-        drawRow(82, "RALT", buf, altUnit);
+        drawRow(64, "RALT", buf, altUnit);
     }
 
     snprintf(buf, sizeof(buf), "%.1f", d.ias);
@@ -118,24 +143,24 @@ static void drawStatusScreen()
         int vRight = 470 - default_screen.textWidth(spdUnit) - 8;
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("IAS", 10, 110);
+        default_screen.drawString("IAS", 10, 96);
         default_screen.setTextDatum(textdatum_t::middle_right);
         default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
-        default_screen.drawString(buf, vRight, 110);
+        default_screen.drawString(buf, vRight, 96);
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString(spdUnit, vRight + 8, 110);
+        default_screen.drawString(spdUnit, vRight + 8, 96);
     }
     else
     {
-        drawRow(110, "IAS", buf, spdUnit);
+        drawRow(96, "IAS", buf, spdUnit);
     }
 
     snprintf(buf, sizeof(buf), "%.1f", d.tas);
-    drawRow(138, "TAS", buf, spdUnit);
+    drawRow(128, "TAS", buf, spdUnit);
 
     snprintf(buf, sizeof(buf), "%.1f", d.vs);
-    drawRow(166, "V/S", buf, d.vsUnit);
+    drawRow(160, "V/S", buf, d.vsUnit);
 
     snprintf(buf, sizeof(buf), "%.3f", d.mach);
     if (d.mach > 1.0f)
@@ -143,26 +168,26 @@ static void drawStatusScreen()
         int vRight = 470 - default_screen.textWidth("MACH") - 8;
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("MACH", 10, 194);
+        default_screen.drawString("MACH", 10, 192);
         default_screen.setTextDatum(textdatum_t::middle_right);
         default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
-        default_screen.drawString(buf, vRight, 194);
+        default_screen.drawString(buf, vRight, 192);
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString("MACH", vRight + 8, 194);
+        default_screen.drawString("MACH", vRight + 8, 192);
     }
     else
     {
         int vRight = 470 - default_screen.textWidth("MACH") - 8;
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("MACH", 10, 194);
+        default_screen.drawString("MACH", 10, 192);
         default_screen.setTextDatum(textdatum_t::middle_right);
         default_screen.setTextColor(MACH_COLOR, TFT_BLACK);
-        default_screen.drawString(buf, vRight, 194);
+        default_screen.drawString(buf, vRight, 192);
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString("MACH", vRight + 8, 194);
+        default_screen.drawString("MACH", vRight + 8, 192);
     }
 
     snprintf(buf, sizeof(buf), "%.2f", d.gForce);
@@ -171,28 +196,28 @@ static void drawStatusScreen()
         int vRight = 470 - default_screen.textWidth("G") - 8;
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("G", 10, 222);
+        default_screen.drawString("G FORCE", 10, 224);
         default_screen.setTextDatum(textdatum_t::middle_right);
         default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
-        default_screen.drawString(buf, vRight, 222);
+        default_screen.drawString(buf, vRight, 224);
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString("G", vRight + 8, 222);
+        default_screen.drawString("G", vRight + 8, 224);
     }
     else
     {
-        drawRow(222, "G", buf, "G");
+        drawRow(224, "G FORCE", buf, "G");
     }
 
     float hdg = fmodf(d.heading, 360.0f);
     if (hdg < 0) hdg += 360.0f;
     snprintf(buf, sizeof(buf), "%03.0f", hdg);
-    drawRow(250, "HDG", buf, "DEG");
+    drawRow(256, "HDG", buf, "DEG");
 
     float mhdg = fmodf(d.mhdg, 360.0f);
     if (mhdg < 0) mhdg += 360.0f;
     snprintf(buf, sizeof(buf), "%03.0f", mhdg);
-    drawRow(278, "MHDG", buf, "DEG");
+    drawRow(288, "MHDG", buf, "DEG");
 
     default_screen.pushSprite(0, 0);
 }
@@ -211,7 +236,6 @@ void setup()
     initscreen();
     initdefaultsprite();
     default_screen.setFont(&RobotoMono_SemiBold16pt7b);
-    netconnect();
     dcsDataMutex = xSemaphoreCreateMutex();
     xTaskCreatePinnedToCore(networkTask, "network", 16384, NULL, 1, NULL, 0);
     xTaskCreatePinnedToCore(displayTask, "display", 16384, NULL, 2, NULL, 1);

@@ -5,11 +5,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
-#include "display.hpp"
 #include "units.hpp"
 
-const char *ssid = "XXXX";
-const char *password = "XXXX";
+const char *ssid = "YOUR_SSID";
+const char *password = "YOUR_PASSWORD";
 
 const uint16_t DCS_UDP_PORT = 5000;
 
@@ -37,30 +36,6 @@ struct DCSData
 
 extern DCSData dcsData;
 extern SemaphoreHandle_t dcsDataMutex;
-extern bool wifiConnectFailed;
-
-bool netconnect()
-{
-    WiFi.mode(WIFI_STA);
-    WiFi.setHostname("DCS-Display-Exporter");
-    WiFi.setSleep(false);
-    WiFi.begin(ssid, password);
-
-    default_screen.fillSprite(TFT_BLACK);
-    default_screen.setTextColor(TFT_WHITE);
-    default_screen.setCursor(10, 20);
-    default_screen.println("Connecting WiFi...");
-    default_screen.pushSprite(0, 0);
-
-    unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(500);
-        if (millis() - start > 20000)
-            break;
-    }
-    return WiFi.status() == WL_CONNECTED;
-}
 
 static void parseDCSPacket(const char *line, DCSData &out)
 {
@@ -116,7 +91,7 @@ static void parseDCSPacket(const char *line, DCSData &out)
     out.mach = mach;
     out.heading = hdg;
     out.mhdg = mhdg;
-    out.gForce = sqrtf(ax * ax + ay * ay + az * az);
+    out.gForce = ay;
     strncpy(out.aircraft, aircraft, sizeof(out.aircraft) - 1);
 }
 
@@ -124,26 +99,30 @@ void networkTask(void *param)
 {
     WiFiUDP udp;
 
-    const uint32_t WIFI_RETRY_MS = 60000;   // retry once per minute
-    const int WIFI_MAX_ATTEMPTS = 5;        // give up after 5 minutes
+    const uint32_t WIFI_RETRY_MS = 60000;
+    const uint32_t UDP_INACTIVITY_TIMEOUT_MS = 10000;
     uint32_t lastWifiAttempt = 0;
-    int wifiFailCount = 0;
-    bool wasConnected = true;
+    bool wasConnected = false;
+
+    WiFi.mode(WIFI_STA);
+    WiFi.setHostname("DCS-Display-Exporter");
+    WiFi.setSleep(false);
+    WiFi.begin(ssid, password);
 
     char buf[512];
     uint32_t frameCounter = 0;
+    uint32_t lastUdpPacketMs = 0;
     bool udpBound = false;
     while (true)
     {
         if (WiFi.status() == WL_CONNECTED)
         {
-            wifiConnectFailed = false;
-            wifiFailCount = 0;
             if (!udpBound)
             {
                 udp.stop();
                 udp.begin(WiFi.localIP(), DCS_UDP_PORT);
                 udpBound = true;
+                lastUdpPacketMs = millis();
             }
             if (!wasConnected)
                 wasConnected = true;
@@ -155,28 +134,26 @@ void networkTask(void *param)
                 wasConnected = false;
                 udpBound = false;
                 lastWifiAttempt = millis();
-                wifiFailCount = 0;
             }
-            if (wifiFailCount >= WIFI_MAX_ATTEMPTS)
+            uint32_t now = millis();
+            if (now - lastWifiAttempt >= WIFI_RETRY_MS)
             {
-                wifiConnectFailed = true;
+                lastWifiAttempt = now;
+                WiFi.begin(ssid, password);
             }
-            else
-            {
-                uint32_t now = millis();
-                if (now - lastWifiAttempt >= WIFI_RETRY_MS)
-                {
-                    lastWifiAttempt = now;
-                    wifiFailCount++;
-                    WiFi.begin(ssid, password);
-                }
-            }
+        }
+
+        if (udpBound && millis() - lastUdpPacketMs >= UDP_INACTIVITY_TIMEOUT_MS)
+        {
+            udpBound = false;
+            continue;
         }
 
         int len = udp.parsePacket();
         if (len > 0)
         {
-            int n = udp.read(buf, sizeof(buf) - 1);
+            lastUdpPacketMs = millis();
+            int n = udp.read(buf, min(len, (int)(sizeof(buf) - 1)));
             if (n > 0)
             {
                 buf[n] = '\0';
