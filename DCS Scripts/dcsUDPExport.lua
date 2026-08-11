@@ -105,9 +105,24 @@ function callbacks.onSimulationFrame()
         local ay = accel.y or 0
         local az = accel.z or 0
 
+        local snares = Export.LoGetSnares()
+        local chaff = 0
+        local flare = 0
+        if snares then
+            chaff = snares.chaff or snares[1] or 0
+            flare = snares.flare or snares[2] or 0
+            if sentCount <= 5 then
+                logWrite("snares chaff=" .. tostring(chaff) .. " flare=" .. tostring(flare))
+            end
+        else
+            if sentCount <= 5 then
+                logWrite("LoGetSnares() returned nil")
+            end
+        end
+
         local msg = string.format(
-            "DCS|ALT_BARO=%.1f|ALT_RADAR=%.1f|IAS=%.2f|TAS=%.2f|VS=%.1f|MACH=%.3f|HDG=%.1f|MHDG=%.1f|AX=%.3f|AY=%.3f|AZ=%.3f|AC=%s",
-            baro, radar, ias, tas, vs, mach, hdg, magYaw, ax, ay, az, acName
+            "DCS|ALT_BARO=%.1f|ALT_RADAR=%.1f|IAS=%.2f|TAS=%.2f|VS=%.1f|MACH=%.3f|HDG=%.1f|MHDG=%.1f|AX=%.3f|AY=%.3f|AZ=%.3f|AC=%s|CHAFF=%.0f|FLARE=%.0f",
+            baro, radar, ias, tas, vs, mach, hdg, magYaw, ax, ay, az, acName, chaff, flare
         )
 
         udp:send(msg)

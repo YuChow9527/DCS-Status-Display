@@ -23,6 +23,8 @@ struct DCSData
     float heading = 0.0f;
     float mhdg = 0.0f;
     float gForce = 0.0f;
+    float chaff = 0.0f;
+    float flare = 0.0f;
     char aircraft[40] = {};
     char altUnit[8] = {};
     char spdUnit[8] = {};
@@ -40,6 +42,7 @@ extern SemaphoreHandle_t dcsDataMutex;
 static void parseDCSPacket(const char *line, DCSData &out)
 {
     float baro = NAN, radar = NAN, ias = NAN, tas = NAN, vs = NAN, mach = NAN, hdg = NAN, mhdg = NAN, ax = NAN, ay = NAN, az = NAN;
+    float chaff = 0, flare = 0;
     char aircraft[sizeof(out.aircraft)] = {};
 
     char *dup = strdup(line);
@@ -78,6 +81,10 @@ static void parseDCSPacket(const char *line, DCSData &out)
                 az = atof(val);
             else if (strcmp(tok, "AC") == 0)
                 strncpy(aircraft, val, sizeof(aircraft) - 1);
+            else if (strcmp(tok, "CHAFF") == 0)
+                chaff = atof(val);
+            else if (strcmp(tok, "FLARE") == 0)
+                flare = atof(val);
         }
         tok = strtok(NULL, "|\r\n");
     }
@@ -92,6 +99,8 @@ static void parseDCSPacket(const char *line, DCSData &out)
     out.heading = hdg;
     out.mhdg = mhdg;
     out.gForce = ay;
+    out.chaff = chaff;
+    out.flare = flare;
     strncpy(out.aircraft, aircraft, sizeof(out.aircraft) - 1);
 }
 
