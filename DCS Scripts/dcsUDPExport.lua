@@ -37,12 +37,12 @@ function callbacks.onSimulationFrame()
         return
     end
 
-    local okF, errF = pcall(function()
-        local t = Export.LoGetModelTime() or 0
-        if lastSendTime >= 0 and t >= lastSendTime and (t - lastSendTime) < UPDATE_INTERVAL then
+    local okF = pcall(function()
+        local modelTime = Export.LoGetModelTime() or 0
+        if lastSendTime >= 0 and modelTime >= lastSendTime and (modelTime - lastSendTime) < UPDATE_INTERVAL then
             return
         end
-        lastSendTime = t
+        lastSendTime = modelTime
 
         local selfData = Export.LoGetSelfData()
         if not selfData then
@@ -57,16 +57,17 @@ function callbacks.onSimulationFrame()
         local tas = Export.LoGetTrueAirSpeed() or 0
         local vs = Export.LoGetVerticalVelocity() or 0
         local mach = Export.LoGetMachNumber() or 0
-        local hdg = math.deg(selfData.Heading or 0) % 360
+        local hdg = selfData.Heading or 0
         local magYaw = Export.LoGetMagneticYaw() or 0
-        if math.abs(magYaw) > 6.29 then
-            magYaw = magYaw % 360
-        else
-            magYaw = math.deg(magYaw) % 360
-        end
+
+        local latLongAlt = selfData.LatLongAlt or {}
+        local lat = latLongAlt.Lat or 0
+        local lon = latLongAlt.Long or 0
 
         local accel = Export.LoGetAccelerationUnits() or {}
+        local ax = accel.x or 0
         local ay = accel.y or 0
+        local az = accel.z or 0
 
         local snares = Export.LoGetSnares()
         local chaff = 0
@@ -77,8 +78,8 @@ function callbacks.onSimulationFrame()
         end
 
         local msg = string.format(
-            "DCS|ALT_BARO=%.1f|ALT_RADAR=%.1f|IAS=%.2f|TAS=%.2f|VS=%.1f|MACH=%.3f|HDG=%.1f|MHDG=%.1f|AX=%.3f|AY=%.3f|AZ=%.3f|AC=%s|CHAFF=%.0f|FLARE=%.0f",
-            baro, radar, ias, tas, vs, mach, hdg, magYaw, 0, ay, 0, acName, chaff, flare
+            "DCS|ALT_BARO=%.2f|ALT_RADAR=%.2f|IAS=%.3f|TAS=%.3f|VS=%.2f|MACH=%.4f|HDG=%.4f|MHDG=%.4f|AX=%.4f|AY=%.4f|AZ=%.4f|LAT=%.6f|LON=%.6f|AC=%s|CHAFF=%.0f|FLARE=%.0f",
+            baro, radar, ias, tas, vs, mach, hdg, magYaw, ax, ay, az, lat, lon, acName, chaff, flare
         )
 
         udp:send(msg)

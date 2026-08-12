@@ -9,7 +9,7 @@ namespace dcs_units
 {
 
 // Aircraft using the metric system (prefix match).
-static const char *const METRIC_AIRCRAFT[] = {
+inline constexpr const char *METRIC_AIRCRAFT[] = {
     "Su-25", "Su-27", "Su-33",
     "MiG-15", "MiG-19", "MiG-21", "MiG-23", "MiG-29", "MiG-29 Fulcrum",
     "Ka-50", "Ka-50_3", "Mi-8", "Mi-24",

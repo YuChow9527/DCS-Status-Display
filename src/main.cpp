@@ -13,22 +13,21 @@ SemaphoreHandle_t dcsDataMutex = NULL;
 #define UNIT_COLOR  0x07FF  // TFT_CYAN
 #define WARN_COLOR  0xF800  // TFT_RED
 
+static constexpr int LAYOUT_GAP = 8;
+static constexpr int LAYOUT_RIGHT = 470;
+static constexpr int LAYOUT_LEFT = 10;
+
 static void drawRow(int y, const char *label, const char *value, const char *unit)
 {
-    const int gap = 8;
-    const int rightEdge = 470;
-
     int uw = 0;
     if (unit[0] != '\0')
-    {
         uw = default_screen.textWidth(unit);
-    }
 
-    int valueRight = (unit[0] != '\0') ? rightEdge - uw - gap : rightEdge;
+    int valueRight = (unit[0] != '\0') ? LAYOUT_RIGHT - uw - LAYOUT_GAP : LAYOUT_RIGHT;
 
     default_screen.setTextDatum(textdatum_t::middle_left);
     default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-    default_screen.drawString(label, 10, y);
+    default_screen.drawString(label, LAYOUT_LEFT, y);
 
     default_screen.setTextDatum(textdatum_t::middle_right);
     default_screen.setTextColor(VALUE_COLOR, TFT_BLACK);
@@ -38,7 +37,7 @@ static void drawRow(int y, const char *label, const char *value, const char *uni
     {
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString(unit, valueRight + gap, y);
+        default_screen.drawString(unit, valueRight + LAYOUT_GAP, y);
     }
 }
 
@@ -120,16 +119,16 @@ static void drawStatusScreen()
     float raltThreshold = altMetric ? 300.0f : 1000.0f;
     if (d.radarAlt < raltThreshold)
     {
-        int vRight = 470 - default_screen.textWidth(altUnit) - 8;
+        int vRight = LAYOUT_RIGHT - default_screen.textWidth(altUnit) - LAYOUT_GAP;
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("RALT", 10, 48);
+        default_screen.drawString("RALT", LAYOUT_LEFT, 48);
         default_screen.setTextDatum(textdatum_t::middle_right);
         default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
         default_screen.drawString(buf, vRight, 48);
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString(altUnit, vRight + 8, 48);
+        default_screen.drawString(altUnit, vRight + LAYOUT_GAP, 48);
     }
     else
     {
@@ -140,16 +139,16 @@ static void drawStatusScreen()
     float iasLowThreshold = spdMetric ? 550.0f : 300.0f;
     if (d.ias < iasLowThreshold)
     {
-        int vRight = 470 - default_screen.textWidth(spdUnit) - 8;
+        int vRight = LAYOUT_RIGHT - default_screen.textWidth(spdUnit) - LAYOUT_GAP;
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("IAS", 10, 76);
+        default_screen.drawString("IAS", LAYOUT_LEFT, 76);
         default_screen.setTextDatum(textdatum_t::middle_right);
         default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
         default_screen.drawString(buf, vRight, 76);
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString(spdUnit, vRight + 8, 76);
+        default_screen.drawString(spdUnit, vRight + LAYOUT_GAP, 76);
     }
     else
     {
@@ -163,46 +162,30 @@ static void drawStatusScreen()
     drawRow(132, "V/S", buf, d.vsUnit);
 
     snprintf(buf, sizeof(buf), "%.3f", d.mach);
-    if (d.mach > 1.0f)
     {
-        int vRight = 470 - default_screen.textWidth("MACH") - 8;
+        uint16_t color = (d.mach > 1.0f) ? WARN_COLOR : MACH_COLOR;
+        int vRight = LAYOUT_RIGHT - LAYOUT_GAP;
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("MACH", 10, 160);
+        default_screen.drawString("MACH", LAYOUT_LEFT, 160);
         default_screen.setTextDatum(textdatum_t::middle_right);
-        default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
+        default_screen.setTextColor(color, TFT_BLACK);
         default_screen.drawString(buf, vRight, 160);
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString("MACH", vRight + 8, 160);
-    }
-    else
-    {
-        int vRight = 470 - default_screen.textWidth("MACH") - 8;
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("MACH", 10, 160);
-        default_screen.setTextDatum(textdatum_t::middle_right);
-        default_screen.setTextColor(MACH_COLOR, TFT_BLACK);
-        default_screen.drawString(buf, vRight, 160);
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString("MACH", vRight + 8, 160);
     }
 
     snprintf(buf, sizeof(buf), "%.2f", d.gForce);
     if (d.gForce > 6.0f)
     {
-        int vRight = 470 - default_screen.textWidth("G") - 8;
+        int vRight = LAYOUT_RIGHT - default_screen.textWidth("G") - LAYOUT_GAP;
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("G FORCE", 10, 188);
+        default_screen.drawString("G FORCE", LAYOUT_LEFT, 188);
         default_screen.setTextDatum(textdatum_t::middle_right);
         default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
         default_screen.drawString(buf, vRight, 188);
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString("G", vRight + 8, 188);
+        default_screen.drawString("G", vRight + LAYOUT_GAP, 188);
     }
     else
     {
@@ -222,10 +205,10 @@ static void drawStatusScreen()
     snprintf(buf, sizeof(buf), "%.0f", d.chaff);
     if (d.chaff < 10.0f)
     {
-        int vRight = 470 - 8;
+        int vRight = LAYOUT_RIGHT - LAYOUT_GAP;
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("CHAF", 10, 272);
+        default_screen.drawString("CHAF", LAYOUT_LEFT, 272);
         default_screen.setTextDatum(textdatum_t::middle_right);
         default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
         default_screen.drawString(buf, vRight, 272);
@@ -238,10 +221,10 @@ static void drawStatusScreen()
     snprintf(buf, sizeof(buf), "%.0f", d.flare);
     if (d.flare < 10.0f)
     {
-        int vRight = 470 - 8;
+        int vRight = LAYOUT_RIGHT - LAYOUT_GAP;
         default_screen.setTextDatum(textdatum_t::middle_left);
         default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("FLAR", 10, 300);
+        default_screen.drawString("FLAR", LAYOUT_LEFT, 300);
         default_screen.setTextDatum(textdatum_t::middle_right);
         default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
         default_screen.drawString(buf, vRight, 300);

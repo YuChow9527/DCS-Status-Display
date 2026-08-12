@@ -7,10 +7,11 @@
 #include <cmath>
 #include "units.hpp"
 
-const char *ssid = "YOUR_SSID";
-const char *password = "YOUR_PASSWORD";
+const char *ssid = "JohnConnor_V3";
+const char *password = "zy634218@";
 
-const uint16_t DCS_UDP_PORT = 5000;
+constexpr uint16_t DCS_UDP_PORT = 5000;
+constexpr float DEG_PER_RAD = 57.29578f;
 
 struct DCSData
 {
@@ -33,7 +34,6 @@ struct DCSData
     bool spdMetric = false;
     bool valid = false;
     uint32_t lastUpdate = 0;
-    uint32_t frameId = 0;
 };
 
 extern DCSData dcsData;
@@ -41,7 +41,8 @@ extern SemaphoreHandle_t dcsDataMutex;
 
 static void parseDCSPacket(const char *line, DCSData &out)
 {
-    float baro = NAN, radar = NAN, ias = NAN, tas = NAN, vs = NAN, mach = NAN, hdg = NAN, mhdg = NAN, ax = NAN, ay = NAN, az = NAN;
+    float baroAlt = NAN, radarAlt = NAN, ias = NAN, tas = NAN, vs = NAN;
+    float mach = NAN, hdg = NAN, mhdg = NAN, ax = NAN, ay = NAN, az = NAN;
     float chaff = 0, flare = 0;
     char aircraft[sizeof(out.aircraft)] = {};
 
@@ -58,9 +59,9 @@ static void parseDCSPacket(const char *line, DCSData &out)
             *eq = '\0';
             const char *val = eq + 1;
             if (strcmp(tok, "ALT_BARO") == 0)
-                baro = atof(val);
+                baroAlt = atof(val);
             else if (strcmp(tok, "ALT_RADAR") == 0)
-                radar = atof(val);
+                radarAlt = atof(val);
             else if (strcmp(tok, "IAS") == 0)
                 ias = atof(val);
             else if (strcmp(tok, "TAS") == 0)
@@ -90,14 +91,14 @@ static void parseDCSPacket(const char *line, DCSData &out)
     }
     free(dup);
 
-    out.baroAlt = baro;
-    out.radarAlt = radar;
+    out.baroAlt = baroAlt;
+    out.radarAlt = radarAlt;
     out.ias = ias;
     out.tas = tas;
     out.vs = vs;
     out.mach = mach;
-    out.heading = hdg;
-    out.mhdg = mhdg;
+    out.heading = hdg * DEG_PER_RAD;
+    out.mhdg = mhdg * DEG_PER_RAD;
     out.gForce = ay;
     out.chaff = chaff;
     out.flare = flare;
@@ -119,7 +120,6 @@ void networkTask(void *param)
     WiFi.begin(ssid, password);
 
     char buf[512];
-    uint32_t frameCounter = 0;
     uint32_t lastUdpPacketMs = 0;
     bool udpBound = false;
     while (true)
@@ -170,7 +170,6 @@ void networkTask(void *param)
                 parseDCSPacket(buf, parsed);
                 parsed.valid = true;
                 parsed.lastUpdate = millis();
-                parsed.frameId = ++frameCounter;
 
                 parsed.altMetric = dcs_units::altitudeIsMetric(parsed.aircraft);
                 parsed.spdMetric = dcs_units::speedIsMetric(parsed.aircraft);
@@ -186,7 +185,6 @@ void networkTask(void *param)
                 {
                     parsed.ias = dcs_units::msToKmh(parsed.ias);
                     parsed.tas = dcs_units::msToKmh(parsed.tas);
-                    parsed.vs = parsed.vs;
                 }
                 else
                 {
