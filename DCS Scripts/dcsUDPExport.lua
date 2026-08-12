@@ -1,4 +1,4 @@
-local HOST = "192.168.40.110"
+local HOST = "192.168.1.100"
 local PORT = 5000
 local UPDATE_INTERVAL = 0.033
 

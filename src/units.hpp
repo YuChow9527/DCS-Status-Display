@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstring>
-#include "modules/apache.hpp"
 
 // Unit conversion for the DCS display. DCS sends raw metric values (meters,
 // m/s); conversion to the display unit system happens here on the ESP32.
@@ -11,10 +10,9 @@ namespace dcs_units
 // Aircraft using the metric system (prefix match).
 inline constexpr const char *METRIC_AIRCRAFT[] = {
     "Su-25", "Su-27", "Su-33",
-    "MiG-15", "MiG-19", "MiG-21", "MiG-23", "MiG-29", "MiG-29 Fulcrum",
+    "MiG-15", "MiG-19", "MiG-21", "MiG-23", "MiG-29",
     "Ka-50", "Ka-50_3", "Mi-8", "Mi-24",
     "Yak-52", "L-39", "J-11",
-    "AH-64", "SA342",
 };
 
 inline bool aircraftUsesMetric(const char *name)
@@ -34,7 +32,7 @@ inline bool altitudeIsMetric(const char *name)
 
 inline bool speedIsMetric(const char *name)
 {
-    return aircraftUsesMetric(name) && !apacheSpeedImperial(name);
+    return aircraftUsesMetric(name);
 }
 
 inline float mToFt(float meters)
