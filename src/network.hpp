@@ -6,9 +6,7 @@
 #include <cstring>
 #include <cmath>
 #include "units.hpp"
-
-const char *ssid = "JohnConnor_V3";
-const char *password = "zy634218@";
+#include "wifi_config.h"
 
 constexpr uint16_t DCS_UDP_PORT = 5000;
 constexpr float DEG_PER_RAD = 57.29578f;
@@ -117,7 +115,7 @@ void networkTask(void *param)
     WiFi.mode(WIFI_STA);
     WiFi.setHostname("DCS-Display-Exporter");
     WiFi.setSleep(false);
-    WiFi.begin(ssid, password);
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
 
     char buf[512];
     uint32_t lastUdpPacketMs = 0;
@@ -148,7 +146,7 @@ void networkTask(void *param)
             if (now - lastWifiAttempt >= WIFI_RETRY_MS)
             {
                 lastWifiAttempt = now;
-                WiFi.begin(ssid, password);
+                WiFi.begin(WIFI_SSID, WIFI_PASS);
             }
         }
 
