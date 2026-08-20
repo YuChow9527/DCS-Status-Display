@@ -1,50 +1,49 @@
 ﻿#include <Arduino.h>
-#include <LovyanGFX.hpp>
 #include "display.hpp"
 #include "network.hpp"
 #include "fonts/RobotoMono_SemiBold_10.h"
-#include "fonts/RobotoMono_SemiBold_16.h"
+#include "fonts/RobotoMono_SemiBold_14.h"
 DCSData dcsData;
-SemaphoreHandle_t dcsDataMutex = NULL;
+SemaphoreHandle_t dcsDataMutex = nullptr;
 
-#define LABEL_COLOR 0xFFE0  // TFT_YELLOW
-#define VALUE_COLOR 0x07E0  // TFT_GREEN
-#define MACH_COLOR  0xF81F  // TFT_PINK
-#define UNIT_COLOR  0x07FF  // TFT_CYAN
-#define WARN_COLOR  0xF800  // TFT_RED
+static constexpr uint16_t kLabelColor = 0xFFE0; // TFT_YELLOW
+static constexpr uint16_t kValueColor = 0x07E0; // TFT_GREEN
+static constexpr uint16_t kMachColor = 0xF81F;  // TFT_PINK
+static constexpr uint16_t kUnitColor = 0x07FF;  // TFT_CYAN
+static constexpr uint16_t kWarnColor = 0xF800;  // TFT_RED
 
-static constexpr int LAYOUT_GAP = 8;
-static constexpr int LAYOUT_RIGHT = 470;
-static constexpr int LAYOUT_LEFT = 10;
+static constexpr int kLayoutGap = 8;
+static constexpr int kLayoutRight = 470;
+static constexpr int kLayoutLeft = 10;
 
 static void drawRow(int y, const char *label, const char *value, const char *unit)
 {
     int uw = 0;
     if (unit[0] != '\0')
-        uw = default_screen.textWidth(unit);
+        uw = displaySprite.textWidth(unit);
 
-    int valueRight = (unit[0] != '\0') ? LAYOUT_RIGHT - uw - LAYOUT_GAP : LAYOUT_RIGHT;
+    int valueRight = (unit[0] != '\0') ? kLayoutRight - uw - kLayoutGap : kLayoutRight;
 
-    default_screen.setTextDatum(textdatum_t::middle_left);
-    default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-    default_screen.drawString(label, LAYOUT_LEFT, y);
+    displaySprite.setTextDatum(textdatum_t::middle_left);
+    displaySprite.setTextColor(kLabelColor, TFT_BLACK);
+    displaySprite.drawString(label, kLayoutLeft, y);
 
-    default_screen.setTextDatum(textdatum_t::middle_right);
-    default_screen.setTextColor(VALUE_COLOR, TFT_BLACK);
-    default_screen.drawString(value, valueRight, y);
+    displaySprite.setTextDatum(textdatum_t::middle_right);
+    displaySprite.setTextColor(kValueColor, TFT_BLACK);
+    displaySprite.drawString(value, valueRight, y);
 
     if (unit[0] != '\0')
     {
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString(unit, valueRight + LAYOUT_GAP, y);
+        displaySprite.setTextDatum(textdatum_t::middle_left);
+        displaySprite.setTextColor(kUnitColor, TFT_BLACK);
+        displaySprite.drawString(unit, valueRight + kLayoutGap, y);
     }
 }
 
 static void drawStatusScreen()
 {
     DCSData d;
-    if (dcsDataMutex != NULL && xSemaphoreTake(dcsDataMutex, 20))
+    if (dcsDataMutex != nullptr && xSemaphoreTake(dcsDataMutex, 20))
     {
         d = dcsData;
         xSemaphoreGive(dcsDataMutex);
@@ -52,7 +51,7 @@ static void drawStatusScreen()
 
     bool stale = !d.valid || (millis() - d.lastUpdate) > 2000;
 
-    default_screen.fillSprite(TFT_BLACK);
+    displaySprite.fillSprite(TFT_BLACK);
 
     if (stale)
     {
@@ -80,12 +79,12 @@ static void drawStatusScreen()
             strncpy(ipLine, "Connecting", sizeof(ipLine) - 1);
         }
 
-        default_screen.setFont(&RobotoMono_SemiBold10pt7b);
+        displaySprite.setFont(&RobotoMono_SemiBold10pt7b);
 
-        const int lineH = default_screen.fontHeight();
+        const int lineH = displaySprite.fontHeight();
         const int gap = 4;
-        int ndW = default_screen.textWidth("NO DATA");
-        int ipW = default_screen.textWidth(ipLine);
+        int ndW = displaySprite.textWidth("NO DATA");
+        int ipW = displaySprite.textWidth(ipLine);
         int bw = max(ndW, ipW);
         int bh = lineH * 2 + gap;
 
@@ -95,16 +94,18 @@ static void drawStatusScreen()
         if (by <= 0 || by + bh >= 320) { dy = -dy; by = constrain(by, 0, 320 - bh); }
 
         int cx = bx + bw / 2;
-        default_screen.setTextDatum(textdatum_t::top_center);
-        default_screen.setTextColor(TFT_RED, TFT_BLACK);
-        default_screen.drawString("NO DATA", cx, by);
-        default_screen.setTextColor(ipColor, TFT_BLACK);
-        default_screen.drawString(ipLine, cx, by + lineH + gap);
+        displaySprite.setTextDatum(textdatum_t::top_center);
+        displaySprite.setTextColor(TFT_RED, TFT_BLACK);
+        displaySprite.drawString("NO DATA", cx, by);
+        displaySprite.setTextColor(ipColor, TFT_BLACK);
+        displaySprite.drawString(ipLine, cx, by + lineH + gap);
 
-        default_screen.setFont(&RobotoMono_SemiBold16pt7b);
-        default_screen.pushSprite(0, 0);
+        displaySprite.setFont(&RobotoMono_SemiBold14pt7b);
+        displaySprite.pushSprite(0, 0);
         return;
     }
+
+    displaySprite.setFont(&RobotoMono_SemiBold14pt7b);
 
     bool altMetric = d.altMetric;
     bool spdMetric = d.spdMetric;
@@ -113,131 +114,137 @@ static void drawStatusScreen()
 
     char buf[16];
     snprintf(buf, sizeof(buf), "%.1f", d.baroAlt);
-    drawRow(20, "ALT", buf, altUnit);
+    drawRow(14, "ALT", buf, altUnit);
 
     snprintf(buf, sizeof(buf), "%.1f", d.radarAlt);
     float raltThreshold = altMetric ? 300.0f : 1000.0f;
     if (d.radarAlt < raltThreshold)
     {
-        int vRight = LAYOUT_RIGHT - default_screen.textWidth(altUnit) - LAYOUT_GAP;
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("RALT", LAYOUT_LEFT, 48);
-        default_screen.setTextDatum(textdatum_t::middle_right);
-        default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
-        default_screen.drawString(buf, vRight, 48);
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString(altUnit, vRight + LAYOUT_GAP, 48);
+        int vRight = kLayoutRight - displaySprite.textWidth(altUnit) - kLayoutGap;
+        displaySprite.setTextDatum(textdatum_t::middle_left);
+        displaySprite.setTextColor(kLabelColor, TFT_BLACK);
+        displaySprite.drawString("RALT", kLayoutLeft, 40);
+        displaySprite.setTextDatum(textdatum_t::middle_right);
+        displaySprite.setTextColor(kWarnColor, TFT_BLACK);
+        displaySprite.drawString(buf, vRight, 40);
+        displaySprite.setTextDatum(textdatum_t::middle_left);
+        displaySprite.setTextColor(kUnitColor, TFT_BLACK);
+        displaySprite.drawString(altUnit, vRight + kLayoutGap, 40);
     }
     else
     {
-        drawRow(48, "RALT", buf, altUnit);
+        drawRow(40, "RALT", buf, altUnit);
     }
 
     snprintf(buf, sizeof(buf), "%.1f", d.ias);
     float iasLowThreshold = spdMetric ? 550.0f : 300.0f;
     if (d.ias < iasLowThreshold)
     {
-        int vRight = LAYOUT_RIGHT - default_screen.textWidth(spdUnit) - LAYOUT_GAP;
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("IAS", LAYOUT_LEFT, 76);
-        default_screen.setTextDatum(textdatum_t::middle_right);
-        default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
-        default_screen.drawString(buf, vRight, 76);
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString(spdUnit, vRight + LAYOUT_GAP, 76);
+        int vRight = kLayoutRight - displaySprite.textWidth(spdUnit) - kLayoutGap;
+        displaySprite.setTextDatum(textdatum_t::middle_left);
+        displaySprite.setTextColor(kLabelColor, TFT_BLACK);
+        displaySprite.drawString("IAS", kLayoutLeft, 66);
+        displaySprite.setTextDatum(textdatum_t::middle_right);
+        displaySprite.setTextColor(kWarnColor, TFT_BLACK);
+        displaySprite.drawString(buf, vRight, 66);
+        displaySprite.setTextDatum(textdatum_t::middle_left);
+        displaySprite.setTextColor(kUnitColor, TFT_BLACK);
+        displaySprite.drawString(spdUnit, vRight + kLayoutGap, 66);
     }
     else
     {
-        drawRow(76, "IAS", buf, spdUnit);
+        drawRow(66, "IAS", buf, spdUnit);
     }
 
     snprintf(buf, sizeof(buf), "%.1f", d.tas);
-    drawRow(104, "TAS", buf, spdUnit);
+    drawRow(92, "TAS", buf, spdUnit);
 
     snprintf(buf, sizeof(buf), "%.1f", d.vs);
-    drawRow(132, "V/S", buf, d.vsUnit);
+    drawRow(118, "V/S", buf, d.vsUnit);
 
     snprintf(buf, sizeof(buf), "%.3f", d.mach);
     {
-        uint16_t color = (d.mach > 1.0f) ? WARN_COLOR : MACH_COLOR;
-        int vRight = LAYOUT_RIGHT - LAYOUT_GAP;
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("MACH", LAYOUT_LEFT, 160);
-        default_screen.setTextDatum(textdatum_t::middle_right);
-        default_screen.setTextColor(color, TFT_BLACK);
-        default_screen.drawString(buf, vRight, 160);
+        uint16_t color = (d.mach > 1.0f) ? kWarnColor : kMachColor;
+        int vRight = kLayoutRight - displaySprite.textWidth("M") - kLayoutGap;
+        displaySprite.setTextDatum(textdatum_t::middle_left);
+        displaySprite.setTextColor(kLabelColor, TFT_BLACK);
+        displaySprite.drawString("MACH", kLayoutLeft, 144);
+        displaySprite.setTextDatum(textdatum_t::middle_right);
+        displaySprite.setTextColor(color, TFT_BLACK);
+        displaySprite.drawString(buf, vRight, 144);
+        displaySprite.setTextDatum(textdatum_t::middle_left);
+        displaySprite.setTextColor(kUnitColor, TFT_BLACK);
+        displaySprite.drawString("M", vRight + kLayoutGap, 144);
     }
 
     snprintf(buf, sizeof(buf), "%.2f", d.gForce);
     if (d.gForce > 6.0f)
     {
-        int vRight = LAYOUT_RIGHT - default_screen.textWidth("G") - LAYOUT_GAP;
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("G FORCE", LAYOUT_LEFT, 188);
-        default_screen.setTextDatum(textdatum_t::middle_right);
-        default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
-        default_screen.drawString(buf, vRight, 188);
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(UNIT_COLOR, TFT_BLACK);
-        default_screen.drawString("G", vRight + LAYOUT_GAP, 188);
+        int vRight = kLayoutRight - displaySprite.textWidth("G") - kLayoutGap;
+        displaySprite.setTextDatum(textdatum_t::middle_left);
+        displaySprite.setTextColor(kLabelColor, TFT_BLACK);
+        displaySprite.drawString("G FORCE", kLayoutLeft, 170);
+        displaySprite.setTextDatum(textdatum_t::middle_right);
+        displaySprite.setTextColor(kWarnColor, TFT_BLACK);
+        displaySprite.drawString(buf, vRight, 170);
+        displaySprite.setTextDatum(textdatum_t::middle_left);
+        displaySprite.setTextColor(kUnitColor, TFT_BLACK);
+        displaySprite.drawString("G", vRight + kLayoutGap, 170);
     }
     else
     {
-        drawRow(188, "G FORCE", buf, "G");
+        drawRow(170, "G FORCE", buf, "G");
     }
 
     float hdg = fmodf(d.heading, 360.0f);
     if (hdg < 0) hdg += 360.0f;
     snprintf(buf, sizeof(buf), "%03.0f", hdg);
-    drawRow(216, "HDG", buf, "DEG");
+    drawRow(196, "HDG", buf, "DEG");
 
     float mhdg = fmodf(d.mhdg, 360.0f);
     if (mhdg < 0) mhdg += 360.0f;
     snprintf(buf, sizeof(buf), "%03.0f", mhdg);
-    drawRow(244, "MHDG", buf, "DEG");
+    drawRow(222, "MHDG", buf, "DEG");
+
+    snprintf(buf, sizeof(buf), "%.2f", d.aoa);
+    drawRow(248, "AOA", buf, "DEG");
 
     snprintf(buf, sizeof(buf), "%.0f", d.chaff);
     if (d.chaff < 10.0f)
     {
-        int vRight = LAYOUT_RIGHT - LAYOUT_GAP;
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("CHAF", LAYOUT_LEFT, 272);
-        default_screen.setTextDatum(textdatum_t::middle_right);
-        default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
-        default_screen.drawString(buf, vRight, 272);
+        int vRight = kLayoutRight - kLayoutGap;
+        displaySprite.setTextDatum(textdatum_t::middle_left);
+        displaySprite.setTextColor(kLabelColor, TFT_BLACK);
+        displaySprite.drawString("CHAF", kLayoutLeft, 274);
+        displaySprite.setTextDatum(textdatum_t::middle_right);
+        displaySprite.setTextColor(kWarnColor, TFT_BLACK);
+        displaySprite.drawString(buf, vRight, 274);
     }
     else
     {
-        drawRow(272, "CHAF", buf, "");
+        drawRow(274, "CHAF", buf, "");
     }
 
     snprintf(buf, sizeof(buf), "%.0f", d.flare);
     if (d.flare < 10.0f)
     {
-        int vRight = LAYOUT_RIGHT - LAYOUT_GAP;
-        default_screen.setTextDatum(textdatum_t::middle_left);
-        default_screen.setTextColor(LABEL_COLOR, TFT_BLACK);
-        default_screen.drawString("FLAR", LAYOUT_LEFT, 300);
-        default_screen.setTextDatum(textdatum_t::middle_right);
-        default_screen.setTextColor(WARN_COLOR, TFT_BLACK);
-        default_screen.drawString(buf, vRight, 300);
+        int vRight = kLayoutRight - kLayoutGap;
+        displaySprite.setTextDatum(textdatum_t::middle_left);
+        displaySprite.setTextColor(kLabelColor, TFT_BLACK);
+        displaySprite.drawString("FLAR", kLayoutLeft, 300);
+        displaySprite.setTextDatum(textdatum_t::middle_right);
+        displaySprite.setTextColor(kWarnColor, TFT_BLACK);
+        displaySprite.drawString(buf, vRight, 300);
     }
     else
     {
         drawRow(300, "FLAR", buf, "");
     }
 
-    default_screen.pushSprite(0, 0);
+    displaySprite.pushSprite(0, 0);
 }
 
-static void displayTask(void *param)
+static void displayTask(void *)
 {
     while (true)
     {
@@ -248,12 +255,12 @@ static void displayTask(void *param)
 
 void setup()
 {
-    initscreen();
-    initdefaultsprite();
-    default_screen.setFont(&RobotoMono_SemiBold16pt7b);
+    initScreen();
+    initDisplaySprite();
+    displaySprite.setFont(&RobotoMono_SemiBold14pt7b);
     dcsDataMutex = xSemaphoreCreateMutex();
-    xTaskCreatePinnedToCore(networkTask, "network", 16384, NULL, 1, NULL, 0);
-    xTaskCreatePinnedToCore(displayTask, "display", 16384, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(networkTask, "network", 16384, nullptr, 1, nullptr, 0);
+    xTaskCreatePinnedToCore(displayTask, "display", 16384, nullptr, 2, nullptr, 1);
 }
 
 void loop()

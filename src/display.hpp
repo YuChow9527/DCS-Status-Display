@@ -14,7 +14,7 @@ public:
             auto cfg = _bus.config();
             cfg.spi_host = SPI3_HOST;
             cfg.spi_mode = 0;
-            cfg.freq_write = 15000000;
+            cfg.freq_write = 25000000;
             cfg.pin_sclk = 12;
             cfg.pin_mosi = 11;
             cfg.pin_miso = -1;
@@ -38,22 +38,22 @@ public:
     }
 };
 
-inline LGFX_S3_ILI9488 thisTFT;
-inline LGFX_Sprite default_screen(&thisTFT);
+inline LGFX_S3_ILI9488 displayDevice;
+inline LGFX_Sprite displaySprite(&displayDevice);
 
-inline void initscreen()
+inline void initScreen()
 {
-    thisTFT.init();
-    thisTFT.invertDisplay(true);
-    thisTFT.fillScreen(TFT_BLACK);
-    thisTFT.startWrite();
+    displayDevice.init();
+    displayDevice.invertDisplay(true);
+    displayDevice.fillScreen(TFT_BLACK);
+    displayDevice.startWrite();
 }
 
-inline void initdefaultsprite()
+inline void initDisplaySprite()
 {
-    default_screen.setPsram(true);
-    default_screen.setColorDepth(16);
-    default_screen.createSprite(480, 320);
-    default_screen.fillSprite(TFT_BLACK);
-    default_screen.setSwapBytes(false);
+    displaySprite.setPsram(true);
+    displaySprite.setColorDepth(16);
+    displaySprite.createSprite(480, 320);
+    displaySprite.fillSprite(TFT_BLACK);
+    displaySprite.setSwapBytes(false);
 }

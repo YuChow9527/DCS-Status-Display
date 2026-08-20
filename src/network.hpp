@@ -19,6 +19,7 @@ struct DCSData
     float tas = 0.0f;
     float vs = 0.0f;
     float mach = 0.0f;
+    float aoa = 0.0f;
     float heading = 0.0f;
     float mhdg = 0.0f;
     float gForce = 0.0f;
@@ -37,57 +38,123 @@ struct DCSData
 extern DCSData dcsData;
 extern SemaphoreHandle_t dcsDataMutex;
 
-static void parseDCSPacket(const char *line, DCSData &out)
+static bool parseFloat(const char *text, float &value)
+{
+    char *end = nullptr;
+    float parsed = strtof(text, &end);
+    if (end == text || *end != '\0' || !isfinite(parsed))
+        return false;
+
+    value = parsed;
+    return true;
+}
+
+static bool parseDcsPacket(const char *line, DCSData &out)
 {
     float baroAlt = NAN, radarAlt = NAN, ias = NAN, tas = NAN, vs = NAN;
-    float mach = NAN, hdg = NAN, mhdg = NAN, ax = NAN, ay = NAN, az = NAN;
+    float mach = NAN, aoa = NAN, hdg = NAN, mhdg = NAN, ax = NAN, ay = NAN, az = NAN;
     float chaff = 0, flare = 0;
     char aircraft[sizeof(out.aircraft)] = {};
 
-    char *dup = strdup(line);
-    if (dup == NULL)
-        return;
+    // Parse a bounded local copy so packets do not allocate from the heap.
+    char packet[512] = {};
+    size_t packetLength = strnlen(line, sizeof(packet) - 1);
+    memcpy(packet, line, packetLength);
 
-    char *tok = strtok(dup, "|\r\n");
-    while (tok != NULL)
+    char *tok = strtok(packet, "|\r\n");
+    if (tok == nullptr || strcmp(tok, "DCS") != 0)
+        return false;
+
+    while (tok != nullptr)
     {
         char *eq = strchr(tok, '=');
-        if (eq != NULL)
+        if (eq != nullptr)
         {
             *eq = '\0';
             const char *val = eq + 1;
             if (strcmp(tok, "ALT_BARO") == 0)
-                baroAlt = atof(val);
+            {
+                if (!parseFloat(val, baroAlt))
+                    return false;
+            }
             else if (strcmp(tok, "ALT_RADAR") == 0)
-                radarAlt = atof(val);
+            {
+                if (!parseFloat(val, radarAlt))
+                    return false;
+            }
             else if (strcmp(tok, "IAS") == 0)
-                ias = atof(val);
+            {
+                if (!parseFloat(val, ias))
+                    return false;
+            }
             else if (strcmp(tok, "TAS") == 0)
-                tas = atof(val);
+            {
+                if (!parseFloat(val, tas))
+                    return false;
+            }
             else if (strcmp(tok, "VS") == 0)
-                vs = atof(val);
+            {
+                if (!parseFloat(val, vs))
+                    return false;
+            }
             else if (strcmp(tok, "MACH") == 0)
-                mach = atof(val);
+            {
+                if (!parseFloat(val, mach))
+                    return false;
+            }
+            else if (strcmp(tok, "AOA") == 0)
+            {
+                if (!parseFloat(val, aoa))
+                    return false;
+            }
             else if (strcmp(tok, "HDG") == 0)
-                hdg = atof(val);
+            {
+                if (!parseFloat(val, hdg))
+                    return false;
+            }
             else if (strcmp(tok, "MHDG") == 0)
-                mhdg = atof(val);
+            {
+                if (!parseFloat(val, mhdg))
+                    return false;
+            }
             else if (strcmp(tok, "AX") == 0)
-                ax = atof(val);
+            {
+                if (!parseFloat(val, ax))
+                    return false;
+            }
             else if (strcmp(tok, "AY") == 0)
-                ay = atof(val);
+            {
+                if (!parseFloat(val, ay))
+                    return false;
+            }
             else if (strcmp(tok, "AZ") == 0)
-                az = atof(val);
+            {
+                if (!parseFloat(val, az))
+                    return false;
+            }
             else if (strcmp(tok, "AC") == 0)
                 strncpy(aircraft, val, sizeof(aircraft) - 1);
             else if (strcmp(tok, "CHAFF") == 0)
-                chaff = atof(val);
+            {
+                if (!parseFloat(val, chaff))
+                    return false;
+            }
             else if (strcmp(tok, "FLARE") == 0)
-                flare = atof(val);
+            {
+                if (!parseFloat(val, flare))
+                    return false;
+            }
         }
-        tok = strtok(NULL, "|\r\n");
+        tok = strtok(nullptr, "|\r\n");
     }
-    free(dup);
+
+    if (!isfinite(baroAlt) || !isfinite(radarAlt) || !isfinite(ias) ||
+        !isfinite(tas) || !isfinite(vs) || !isfinite(mach) ||
+        !isfinite(aoa) || !isfinite(hdg) || !isfinite(mhdg) ||
+        !isfinite(ax) || !isfinite(ay) || !isfinite(az))
+    {
+        return false;
+    }
 
     out.baroAlt = baroAlt;
     out.radarAlt = radarAlt;
@@ -95,15 +162,18 @@ static void parseDCSPacket(const char *line, DCSData &out)
     out.tas = tas;
     out.vs = vs;
     out.mach = mach;
+    // DCS returns AOA in degrees for the current export implementation.
+    out.aoa = aoa;
     out.heading = hdg * DEG_PER_RAD;
     out.mhdg = mhdg * DEG_PER_RAD;
     out.gForce = ay;
     out.chaff = chaff;
     out.flare = flare;
     strncpy(out.aircraft, aircraft, sizeof(out.aircraft) - 1);
+    return true;
 }
 
-void networkTask(void *param)
+void networkTask(void *)
 {
     WiFiUDP udp;
 
@@ -127,7 +197,14 @@ void networkTask(void *param)
             if (!udpBound)
             {
                 udp.stop();
-                udp.begin(WiFi.localIP(), DCS_UDP_PORT);
+                const bool udpBindOk = udp.begin(DCS_UDP_PORT);
+                if (!udpBindOk)
+                {
+                    udpBound = false;
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                    continue;
+                }
+
                 udpBound = true;
                 lastUdpPacketMs = millis();
             }
@@ -159,13 +236,18 @@ void networkTask(void *param)
         int len = udp.parsePacket();
         if (len > 0)
         {
-            lastUdpPacketMs = millis();
             int n = udp.read(buf, min(len, (int)(sizeof(buf) - 1)));
             if (n > 0)
             {
                 buf[n] = '\0';
                 DCSData parsed;
-                parseDCSPacket(buf, parsed);
+                if (!parseDcsPacket(buf, parsed))
+                {
+                    vTaskDelay(pdMS_TO_TICKS(5));
+                    continue;
+                }
+
+                lastUdpPacketMs = millis();
                 parsed.valid = true;
                 parsed.lastUpdate = millis();
 
@@ -174,25 +256,25 @@ void networkTask(void *param)
 
                 if (!parsed.altMetric)
                 {
-                    parsed.baroAlt = dcs_units::mToFt(parsed.baroAlt);
-                    parsed.radarAlt = dcs_units::mToFt(parsed.radarAlt);
+                    parsed.baroAlt = dcs_units::metersToFeet(parsed.baroAlt);
+                    parsed.radarAlt = dcs_units::metersToFeet(parsed.radarAlt);
                 }
                 strncpy(parsed.altUnit, parsed.altMetric ? "M" : "FT", sizeof(parsed.altUnit) - 1);
 
                 if (parsed.spdMetric)
                 {
-                    parsed.ias = dcs_units::msToKmh(parsed.ias);
-                    parsed.tas = dcs_units::msToKmh(parsed.tas);
+                    parsed.ias = dcs_units::metersPerSecondToKilometersPerHour(parsed.ias);
+                    parsed.tas = dcs_units::metersPerSecondToKilometersPerHour(parsed.tas);
                 }
                 else
                 {
-                    parsed.ias = dcs_units::msToKts(parsed.ias);
-                    parsed.tas = dcs_units::msToKts(parsed.tas);
-                    parsed.vs = dcs_units::msToFpm(parsed.vs);
+                    parsed.ias = dcs_units::metersPerSecondToKnots(parsed.ias);
+                    parsed.tas = dcs_units::metersPerSecondToKnots(parsed.tas);
+                    parsed.vs = dcs_units::metersPerSecondToFeetPerMinute(parsed.vs);
                 }
                 strncpy(parsed.spdUnit, parsed.spdMetric ? "KM/H" : "KTS", sizeof(parsed.spdUnit) - 1);
                 strncpy(parsed.vsUnit, parsed.spdMetric ? "M/S" : "FPM", sizeof(parsed.vsUnit) - 1);
-                if (dcsDataMutex != NULL)
+                if (dcsDataMutex != nullptr)
                 {
                     if (xSemaphoreTake(dcsDataMutex, 10))
                     {
